@@ -15,6 +15,7 @@ import { SendButton } from './SendButton.client';
 import { APIKeyManager, getApiKeysFromCookies } from './APIKeyManager';
 import Cookies from 'js-cookie';
 import * as Tooltip from '@radix-ui/react-tooltip';
+import { useTranslations } from '~/lib/hooks/useTranslations';
 
 import styles from './BaseChat.module.scss';
 import { ExportChatButton } from '~/components/chat/chatExportAndImport/ExportChatButton';
@@ -67,40 +68,9 @@ interface BaseChatProps {
 }
 
 export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
-  (
-    {
-      textareaRef,
-      messageRef,
-      scrollRef,
-      showChat = true,
-      chatStarted = false,
-      isStreaming = false,
-      model,
-      setModel,
-      provider,
-      setProvider,
-      providerList,
-      input = '',
-      enhancingPrompt,
-      handleInputChange,
-
-      // promptEnhanced,
-      enhancePrompt,
-      sendMessage,
-      handleStop,
-      importChat,
-      exportChat,
-      uploadedFiles = [],
-      setUploadedFiles,
-      imageDataList = [],
-      setImageDataList,
-      messages,
-      actionAlert,
-      clearAlert,
-    },
-    ref,
-  ) => {
-    const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
+  (props, ref) => {
+    const t = useTranslations();
+    const TEXTAREA_MAX_HEIGHT = props.chatStarted ? 400 : 200;
     const [apiKeys, setApiKeys] = useState<Record<string, string>>(getApiKeysFromCookies());
     const [modelList, setModelList] = useState(MODEL_LIST);
     const [isModelSettingsCollapsed, setIsModelSettingsCollapsed] = useState(false);
@@ -150,11 +120,11 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
 
           setTranscript(transcript);
 
-          if (handleInputChange) {
+          if (props.handleInputChange) {
             const syntheticEvent = {
               target: { value: transcript },
             } as React.ChangeEvent<HTMLTextAreaElement>;
-            handleInputChange(syntheticEvent);
+            props.handleInputChange(syntheticEvent);
           }
         };
 
@@ -194,7 +164,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
             setIsModelLoading(undefined);
           });
       }
-    }, [providerList]);
+    }, [props.providerList]);
 
     const onApiKeysChange = async (providerName: string, apiKey: string) => {
       const newApiKeys = { ...apiKeys, [providerName]: apiKey };
@@ -241,8 +211,8 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     };
 
     const handleSendMessage = (event: React.UIEvent, messageInput?: string) => {
-      if (sendMessage) {
-        sendMessage(event, messageInput);
+      if (props.sendMessage) {
+        props.sendMessage(event, messageInput);
 
         if (recognition) {
           recognition.abort(); // Stop current recognition
@@ -250,11 +220,11 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           setIsListening(false);
 
           // Clear the input by triggering handleInputChange with empty value
-          if (handleInputChange) {
+          if (props.handleInputChange) {
             const syntheticEvent = {
               target: { value: '' },
             } as React.ChangeEvent<HTMLTextAreaElement>;
-            handleInputChange(syntheticEvent);
+            props.handleInputChange(syntheticEvent);
           }
         }
       }
@@ -273,8 +243,8 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
 
           reader.onload = (e) => {
             const base64Image = e.target?.result as string;
-            setUploadedFiles?.([...uploadedFiles, file]);
-            setImageDataList?.([...imageDataList, base64Image]);
+            props.setUploadedFiles?.([...props.uploadedFiles, file]);
+            props.setImageDataList?.([...props.imageDataList, base64Image]);
           };
           reader.readAsDataURL(file);
         }
@@ -301,8 +271,8 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
 
             reader.onload = (e) => {
               const base64Image = e.target?.result as string;
-              setUploadedFiles?.([...uploadedFiles, file]);
-              setImageDataList?.([...imageDataList, base64Image]);
+              props.setUploadedFiles?.([...props.uploadedFiles, file]);
+              props.setImageDataList?.([...props.imageDataList, base64Image]);
             };
             reader.readAsDataURL(file);
           }
@@ -312,315 +282,136 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       }
     };
 
-    const baseChat = (
-      <div
-        ref={ref}
-        className={classNames(styles.BaseChat, 'relative flex h-full w-full overflow-hidden')}
-        data-chat-visible={showChat}
-      >
-        <ClientOnly>{() => <Menu />}</ClientOnly>
-        <div ref={scrollRef} className="flex flex-col lg:flex-row overflow-y-auto w-full h-full">
-          <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full')}>
-            {!chatStarted && (
-              <div id="intro" className="mt-[16vh] max-w-chat mx-auto text-center px-4 lg:px-0">
-                <h1 className="text-3xl lg:text-6xl font-bold text-bolt-elements-textPrimary mb-4 animate-fade-in">
-                  Where ideas begin
-                </h1>
-                <p className="text-md lg:text-xl mb-8 text-bolt-elements-textSecondary animate-fade-in animation-delay-200">
-                  Bring ideas to life in seconds or get help on existing projects.
-                </p>
-              </div>
-            )}
-            <div
-              className={classNames('pt-6 px-2 sm:px-6', {
-                'h-full flex flex-col': chatStarted,
-              })}
-            >
-              <ClientOnly>
-                {() => {
-                  return chatStarted ? (
-                    <Messages
-                      ref={messageRef}
-                      className="flex flex-col w-full flex-1 max-w-chat pb-6 mx-auto z-1"
-                      messages={messages}
-                      isStreaming={isStreaming}
-                    />
-                  ) : null;
-                }}
-              </ClientOnly>
-              <div
-                className={classNames('flex flex-col gap-4 w-full max-w-chat mx-auto z-prompt mb-6', {
-                  'sticky bottom-2': chatStarted,
-                })}
-              >
-                <div className="bg-bolt-elements-background-depth-2">
-                  {actionAlert && (
-                    <ChatAlert
-                      alert={actionAlert}
-                      clearAlert={() => clearAlert?.()}
-                      postMessage={(message) => {
-                        sendMessage?.({} as any, message);
-                        clearAlert?.();
-                      }}
-                    />
-                  )}
+    return (
+      <div className={styles.container} ref={ref}>
+        <div className="flex h-full">
+          <ClientOnly>{() => <Menu />}</ClientOnly>
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto" ref={props.scrollRef}>
+              {props.messages && props.messages.length > 0 ? (
+                <Messages ref={props.messageRef} messages={props.messages} />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full">
+                  <ExamplePrompts />
+                  <StarterTemplates />
                 </div>
-                <div
-                  className={classNames(
-                    'bg-bolt-elements-background-depth-2 p-3 rounded-lg border border-bolt-elements-borderColor relative w-full max-w-chat mx-auto z-prompt',
+              )}
+            </div>
 
-                    /*
-                     * {
-                     *   'sticky bottom-2': chatStarted,
-                     * },
-                     */
-                  )}
-                >
-                  <svg className={classNames(styles.PromptEffectContainer)}>
-                    <defs>
-                      <linearGradient
-                        id="line-gradient"
-                        x1="20%"
-                        y1="0%"
-                        x2="-14%"
-                        y2="10%"
-                        gradientUnits="userSpaceOnUse"
-                        gradientTransform="rotate(-45)"
-                      >
-                        <stop offset="0%" stopColor="#b44aff" stopOpacity="0%"></stop>
-                        <stop offset="40%" stopColor="#b44aff" stopOpacity="80%"></stop>
-                        <stop offset="50%" stopColor="#b44aff" stopOpacity="80%"></stop>
-                        <stop offset="100%" stopColor="#b44aff" stopOpacity="0%"></stop>
-                      </linearGradient>
-                      <linearGradient id="shine-gradient">
-                        <stop offset="0%" stopColor="white" stopOpacity="0%"></stop>
-                        <stop offset="40%" stopColor="#ffffff" stopOpacity="80%"></stop>
-                        <stop offset="50%" stopColor="#ffffff" stopOpacity="80%"></stop>
-                        <stop offset="100%" stopColor="white" stopOpacity="0%"></stop>
-                      </linearGradient>
-                    </defs>
-                    <rect className={classNames(styles.PromptEffectLine)} pathLength="100" strokeLinecap="round"></rect>
-                    <rect className={classNames(styles.PromptShine)} x="48" y="24" width="70" height="1"></rect>
-                  </svg>
-                  <div>
-                    <ClientOnly>
-                      {() => (
-                        <div className={isModelSettingsCollapsed ? 'hidden' : ''}>
-                          <ModelSelector
-                            key={provider?.name + ':' + modelList.length}
-                            model={model}
-                            setModel={setModel}
-                            modelList={modelList}
-                            provider={provider}
-                            setProvider={setProvider}
-                            providerList={providerList || (PROVIDER_LIST as ProviderInfo[])}
-                            apiKeys={apiKeys}
-                            modelLoading={isModelLoading}
-                          />
-                          {(providerList || []).length > 0 && provider && (
-                            <APIKeyManager
-                              provider={provider}
-                              apiKey={apiKeys[provider.name] || ''}
-                              setApiKey={(key) => {
-                                onApiKeysChange(provider.name, key);
-                              }}
-                            />
-                          )}
-                        </div>
-                      )}
-                    </ClientOnly>
-                  </div>
-                  <FilePreview
-                    files={uploadedFiles}
-                    imageDataList={imageDataList}
-                    onRemove={(index) => {
-                      setUploadedFiles?.(uploadedFiles.filter((_, i) => i !== index));
-                      setImageDataList?.(imageDataList.filter((_, i) => i !== index));
-                    }}
-                  />
-                  <ClientOnly>
-                    {() => (
-                      <ScreenshotStateManager
-                        setUploadedFiles={setUploadedFiles}
-                        setImageDataList={setImageDataList}
-                        uploadedFiles={uploadedFiles}
-                        imageDataList={imageDataList}
+            <div className="border-t border-bolt-elements-border">
+              {props.actionAlert && <ChatAlert alert={props.actionAlert} clearAlert={props.clearAlert} />}
+
+              <div className="container mx-auto max-w-3xl">
+                <div className="flex flex-col gap-4 p-4 pt-2">
+                  <div className="flex flex-wrap gap-2">
+                    {props.uploadedFiles.map((file, index) => (
+                      <FilePreview
+                        key={index}
+                        file={file}
+                        onRemove={() => {
+                          const newFiles = [...props.uploadedFiles];
+                          newFiles.splice(index, 1);
+                          props.setUploadedFiles?.(newFiles);
+
+                          const newDataList = [...props.imageDataList];
+                          newDataList.splice(index, 1);
+                          props.setImageDataList?.(newDataList);
+                        }}
                       />
-                    )}
-                  </ClientOnly>
-                  <div
-                    className={classNames(
-                      'relative shadow-xs border border-bolt-elements-borderColor backdrop-blur rounded-lg',
-                    )}
-                  >
-                    <textarea
-                      ref={textareaRef}
-                      className={classNames(
-                        'w-full pl-4 pt-4 pr-16 outline-none resize-none text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary bg-transparent text-sm',
-                        'transition-all duration-200',
-                        'hover:border-bolt-elements-focus',
-                      )}
-                      onDragEnter={(e) => {
-                        e.preventDefault();
-                        e.currentTarget.style.border = '2px solid #1488fc';
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.currentTarget.style.border = '2px solid #1488fc';
-                      }}
-                      onDragLeave={(e) => {
-                        e.preventDefault();
-                        e.currentTarget.style.border = '1px solid var(--bolt-elements-borderColor)';
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        e.currentTarget.style.border = '1px solid var(--bolt-elements-borderColor)';
+                    ))}
+                  </div>
 
-                        const files = Array.from(e.dataTransfer.files);
-                        files.forEach((file) => {
-                          if (file.type.startsWith('image/')) {
-                            const reader = new FileReader();
-
-                            reader.onload = (e) => {
-                              const base64Image = e.target?.result as string;
-                              setUploadedFiles?.([...uploadedFiles, file]);
-                              setImageDataList?.([...imageDataList, base64Image]);
-                            };
-                            reader.readAsDataURL(file);
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <textarea
+                        ref={props.textareaRef}
+                        className={classNames(
+                          'w-full rounded-lg border border-bolt-elements-border bg-bolt-elements-background-depth-2 px-3 py-2 outline-none placeholder:text-bolt-elements-text-muted focus:border-bolt-elements-border-focus',
+                          styles.textarea,
+                        )}
+                        rows={1}
+                        placeholder={t.chat.placeholder}
+                        value={props.input}
+                        onChange={props.handleInputChange}
+                        onPaste={handlePaste}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && !event.shiftKey) {
+                            event.preventDefault();
+                            handleSendMessage(event);
                           }
-                        });
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          if (event.shiftKey) {
-                            return;
-                          }
+                        }}
+                      />
+                    </div>
 
-                          event.preventDefault();
+                    <div className="flex items-end gap-2">
+                      <IconButton
+                        title={t.chat.uploadFile}
+                        className="transition-all"
+                        onClick={() => handleFileUpload()}
+                      >
+                        <div className="i-ph:paperclip text-xl" />
+                      </IconButton>
 
-                          if (isStreaming) {
-                            handleStop?.();
-                            return;
-                          }
-
-                          // ignore if using input method engine
-                          if (event.nativeEvent.isComposing) {
-                            return;
-                          }
-
-                          handleSendMessage?.(event);
-                        }
-                      }}
-                      value={input}
-                      onChange={(event) => {
-                        handleInputChange?.(event);
-                      }}
-                      onPaste={handlePaste}
-                      style={{
-                        minHeight: TEXTAREA_MIN_HEIGHT,
-                        maxHeight: TEXTAREA_MAX_HEIGHT,
-                      }}
-                      placeholder="How can Bolt help you today?"
-                      translate="no"
-                    />
-                    <ClientOnly>
-                      {() => (
-                        <SendButton
-                          show={input.length > 0 || isStreaming || uploadedFiles.length > 0}
-                          isStreaming={isStreaming}
-                          disabled={!providerList || providerList.length === 0}
-                          onClick={(event) => {
-                            if (isStreaming) {
-                              handleStop?.();
-                              return;
-                            }
-
-                            if (input.length > 0 || uploadedFiles.length > 0) {
-                              handleSendMessage?.(event);
-                            }
-                          }}
-                        />
-                      )}
-                    </ClientOnly>
-                    <div className="flex justify-between items-center text-sm p-4 pt-2">
-                      <div className="flex gap-1 items-center">
-                        <IconButton title="Upload file" className="transition-all" onClick={() => handleFileUpload()}>
-                          <div className="i-ph:paperclip text-xl"></div>
-                        </IconButton>
+                      {props.enhancePrompt && (
                         <IconButton
-                          title="Enhance prompt"
-                          disabled={input.length === 0 || enhancingPrompt}
-                          className={classNames('transition-all', enhancingPrompt ? 'opacity-100' : '')}
-                          onClick={() => {
-                            enhancePrompt?.();
-                            toast.success('Prompt enhanced!');
-                          }}
+                          title={t.chat.enhancePrompt}
+                          className="transition-all"
+                          onClick={props.enhancePrompt}
+                          disabled={props.enhancingPrompt || !props.input}
                         >
-                          {enhancingPrompt ? (
-                            <div className="i-svg-spinners:90-ring-with-bg text-bolt-elements-loader-progress text-xl animate-spin"></div>
-                          ) : (
-                            <div className="i-bolt:stars text-xl"></div>
-                          )}
+                          <div className="i-ph:sparkle text-xl" />
                         </IconButton>
+                      )}
 
-                        <SpeechRecognitionButton
-                          isListening={isListening}
-                          onStart={startListening}
-                          onStop={stopListening}
-                          disabled={isStreaming}
-                        />
-                        {chatStarted && <ClientOnly>{() => <ExportChatButton exportChat={exportChat} />}</ClientOnly>}
+                      {props.isStreaming ? (
                         <IconButton
-                          title="Model Settings"
-                          className={classNames('transition-all flex items-center gap-1', {
-                            'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent':
-                              isModelSettingsCollapsed,
-                            'bg-bolt-elements-item-backgroundDefault text-bolt-elements-item-contentDefault':
-                              !isModelSettingsCollapsed,
-                          })}
-                          onClick={() => setIsModelSettingsCollapsed(!isModelSettingsCollapsed)}
-                          disabled={!providerList || providerList.length === 0}
+                          title={t.chat.stopGeneration}
+                          className="transition-all"
+                          onClick={props.handleStop}
                         >
-                          <div className={`i-ph:caret-${isModelSettingsCollapsed ? 'right' : 'down'} text-lg`} />
-                          {isModelSettingsCollapsed ? <span className="text-xs">{model}</span> : <span />}
+                          <div className="i-ph:stop-circle text-xl" />
                         </IconButton>
-                      </div>
-                      {input.length > 3 ? (
-                        <div className="text-xs text-bolt-elements-textTertiary">
-                          Use <kbd className="kdb px-1.5 py-0.5 rounded bg-bolt-elements-background-depth-2">Shift</kbd>{' '}
-                          + <kbd className="kdb px-1.5 py-0.5 rounded bg-bolt-elements-background-depth-2">Return</kbd>{' '}
-                          a new line
-                        </div>
-                      ) : null}
+                      ) : (
+                        <SendButton onClick={handleSendMessage} disabled={!props.input && !props.uploadedFiles.length} />
+                      )}
+
+                      <SpeechRecognitionButton
+                        onStart={startListening}
+                        onStop={stopListening}
+                        disabled={!recognition}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <div className="flex gap-2">
+                      <ModelSelector
+                        model={props.model}
+                        setModel={props.setModel}
+                        provider={props.provider}
+                        setProvider={props.setProvider}
+                        providerList={props.providerList}
+                      />
+
+                      <APIKeyManager
+                        provider={props.provider}
+                        onApiKeysChange={onApiKeysChange}
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <ExportChatButton onClick={props.exportChat} />
+                      <ImportButtons onImport={props.importChat} />
+                      <GitCloneButton />
+                      <ScreenshotStateManager />
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="flex flex-col justify-center gap-5">
-              {!chatStarted && (
-                <div className="flex justify-center gap-2">
-                  {ImportButtons(importChat)}
-                  <GitCloneButton importChat={importChat} />
-                </div>
-              )}
-              {!chatStarted &&
-                ExamplePrompts((event, messageInput) => {
-                  if (isStreaming) {
-                    handleStop?.();
-                    return;
-                  }
-
-                  handleSendMessage?.(event, messageInput);
-                })}
-              {!chatStarted && <StarterTemplates />}
-            </div>
           </div>
-          <ClientOnly>{() => <Workbench chatStarted={chatStarted} isStreaming={isStreaming} />}</ClientOnly>
         </div>
       </div>
     );
-
-    return <Tooltip.Provider delayDuration={200}>{baseChat}</Tooltip.Provider>;
   },
 );

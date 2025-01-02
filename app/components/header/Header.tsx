@@ -4,9 +4,20 @@ import { chatStore } from '~/lib/stores/chat';
 import { classNames } from '~/utils/classNames';
 import { HeaderActionButtons } from './HeaderActionButtons.client';
 import { ChatDescription } from '~/lib/persistence/ChatDescription.client';
+import { useTranslations } from '~/lib/hooks/useTranslations';
+import { themeStore } from '~/lib/stores/theme';
+import { IconButton } from '../ui/IconButton';
+import { logout } from '~/lib/auth';
+import { Form } from '@remix-run/react';
 
 export function Header() {
   const chat = useStore(chatStore);
+  const t = useTranslations();
+  const theme = useStore(themeStore);
+
+  const toggleTheme = () => {
+    themeStore.set(theme === 'dark' ? 'light' : 'dark');
+  };
 
   return (
     <header
@@ -37,6 +48,25 @@ export function Header() {
           </ClientOnly>
         </>
       )}
+      <div className="flex items-center gap-2">
+        <IconButton
+          title={t.settings.theme.title}
+          onClick={toggleTheme}
+          className="transition-all"
+        >
+          <div className={`i-ph:${theme === 'dark' ? 'sun' : 'moon'} text-xl`} />
+        </IconButton>
+
+        <Form action="/logout" method="post">
+          <IconButton
+            title={t.auth.logout}
+            type="submit"
+            className="transition-all"
+          >
+            <div className="i-ph:sign-out text-xl" />
+          </IconButton>
+        </Form>
+      </div>
     </header>
   );
 }
